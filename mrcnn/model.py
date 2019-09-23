@@ -24,6 +24,11 @@ import keras.layers as KL
 import keras.engine as KE
 import keras.models as KM
 
+import keras.backend as K
+cfg = K.tf.ConfigProto(gpu_options={'allow_growth': True})
+K.set_session(K.tf.Session(config=cfg))
+
+
 from mrcnn import utils
 
 # Requires TensorFlow 1.3+ and Keras 2.0.8+.
