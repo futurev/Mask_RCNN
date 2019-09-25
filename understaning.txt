@@ -3,8 +3,8 @@ J.Xu
 
 20190925
 
-- config <train> or <infer>
-- build network
+-1 config <train> or <infer>
+-2 build network
   --  # RPN GT
       input_rpn_match
       input_rpn_bbox
@@ -31,14 +31,71 @@ J.Xu
       ---anchors
           anchors <class 'tuple'>: (2, 261888, 4) 261888 = 512^2 + 256^2 + ...+32^2
           
-      ---rpn network, rpn_graph(feature_map, anchors_per_location, anchor_stride)
-          feature_map: backbone features [batch, height, width, depth]
-          anchors_per_location: number of anchors per pixel in the feature map
-          anchor_stride: Controls the density of anchors. Typically 1 (anchors for
-                         every pixel in the feature map), or 2 (every other pixel).
+      ---rpn network, output: rpn_rois
+          ----rpn_graph(feature_map, anchors_per_location, anchor_stride)
+              feature_map: backbone features [batch, height, width, depth]
+              anchors_per_location: number of anchors per pixel in the feature map
+              anchor_stride: Controls the density of anchors. Typically 1 (anchors for
+                             every pixel in the feature map), or 2 (every other pixel).
 
-          Returns:
-              rpn_class_logits: [batch, H * W * anchors_per_location, 2] Anchor classifier logits (before softmax)
-              rpn_probs: [batch, H * W * anchors_per_location, 2] Anchor classifier probabilities.
-              rpn_bbox: [batch, H * W * anchors_per_location, (dy, dx, log(dh), log(dw))] Deltas to be
-                        applied to anchors.
+              Returns:
+                  rpn_class_logits: [batch, H * W * anchors_per_location, 2] Anchor classifier logits (before softmax)
+                  rpn_probs: [batch, H * W * anchors_per_location, 2] Anchor classifier probabilities.
+                  rpn_bbox: [batch, H * W * anchors_per_location, (dy, dx, log(dh), log(dw))] Deltas to be
+                            applied to anchors.
+                            
+           ----get output from rpn
+                # Loop through pyramid layers [p] and append to layer_outputs 
+                # Concatenate layer outputs
+                # Convert from list of lists of level outputs to list of lists
+                # of outputs across levels.
+                # e.g. [[a1, b1, c1], [a2, b2, c2]] => [[a1, a2], [b1, b2], [c1, c2]]
+                get final result from rpn:
+                rpn_class_logits, rpn_class, rpn_bbox
+                
+           ----get proposals
+                # Generate proposals
+                # Proposals are [batch, N, (y1, x1, y2, x2)] in normalized coordinates
+                # and zero padded. proposal_count = 2000
+                
+                PropsalLayer()
+                """Receives anchor scores and selects a subset to pass as proposals
+                  to the second stage. Filtering is done based on anchor scores and
+                  non-max suppression to remove overlaps. It also applies bounding
+                  box refinement deltas to anchors.
+
+                  Inputs:
+                      rpn_probs: [batch, num_anchors, (bg prob, fg prob)]
+                      rpn_bbox: [batch, num_anchors, (dy, dx, log(dh), log(dw))]
+                      anchors: [batch, num_anchors, (y1, x1, y2, x2)] anchors in normalized coordinates
+
+                  Returns:
+                      Proposals in normalized coordinates [batch, rois, (y1, x1, y2, x2)]  ==> rpn_rois
+                      
+                  -----scores: Improve performance by trimming to top anchors by score
+                                # and doing the rest on the smaller subset.
+                  -----delta: # Apply deltas to anchors to get refined anchors.
+                        # [batch, N, (y1, x1, y2, x2)]
+                  -----clip: # Clip to image boundaries. Since we're in normalized coordinates,
+                              # clip to 0..1 range. [batch, N, (y1, x1, y2, x2)]
+                  -----nms: # Non-max suppression
+  
+        ---detection network
+        
+        
+        ---mask network
+
+        ---Losses
+            rpn_class_loss = KL.Lambda(lambda x: rpn_class_loss_graph(*x), name="rpn_class_loss")(
+                [input_rpn_match, rpn_class_logits])
+            rpn_bbox_loss = KL.Lambda(lambda x: rpn_bbox_loss_graph(config, *x), name="rpn_bbox_loss")(
+                [input_rpn_bbox, input_rpn_match, rpn_bbox])
+            class_loss = KL.Lambda(lambda x: mrcnn_class_loss_graph(*x), name="mrcnn_class_loss")(
+                [target_class_ids, mrcnn_class_logits, active_class_ids])
+            bbox_loss = KL.Lambda(lambda x: mrcnn_bbox_loss_graph(*x), name="mrcnn_bbox_loss")(
+                [target_bbox, target_class_ids, mrcnn_bbox])
+            mask_loss = KL.Lambda(lambda x: mrcnn_mask_loss_graph(*x), name="mrcnn_mask_loss")(
+                [target_mask, target_class_ids, mrcnn_mask])
+ 
+-3 load_weight
+-4 train
