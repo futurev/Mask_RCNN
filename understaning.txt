@@ -1,0 +1,44 @@
+
+J.Xu
+
+20190925
+
+- config <train> or <infer>
+- build network
+  --  # RPN GT
+      input_rpn_match
+      input_rpn_bbox
+   
+   -- Detection GT (class IDs, bounding boxes, and masks)
+      
+      ---input
+            # 1. GT Class IDs (zero padded)
+            input_gt_class_ids
+             # 2. GT Boxes in pixels (zero padded)
+            # [batch, MAX_GT_INSTANCES, (y1, x1, y2, x2)] in image coordinates
+            input_gt_boxes
+            # Normalize coordinates
+            gt_boxes
+            # 3. GT Masks (zero padded)
+            # [batch, height, width, MAX_GT_INSTANCES]
+            config.USE_MINI_MASK:
+                input_gt_masks
+      
+      ---backbone
+            rpn_feature_maps = [P2, P3, P4, P5, P6]
+            mrcnn_feature_maps = [P2, P3, P4, P5]
+      
+      ---anchors
+          anchors <class 'tuple'>: (2, 261888, 4) 261888 = 512^2 + 256^2 + ...+32^2
+          
+      ---rpn network, rpn_graph(feature_map, anchors_per_location, anchor_stride)
+          feature_map: backbone features [batch, height, width, depth]
+          anchors_per_location: number of anchors per pixel in the feature map
+          anchor_stride: Controls the density of anchors. Typically 1 (anchors for
+                         every pixel in the feature map), or 2 (every other pixel).
+
+          Returns:
+              rpn_class_logits: [batch, H * W * anchors_per_location, 2] Anchor classifier logits (before softmax)
+              rpn_probs: [batch, H * W * anchors_per_location, 2] Anchor classifier probabilities.
+              rpn_bbox: [batch, H * W * anchors_per_location, (dy, dx, log(dh), log(dw))] Deltas to be
+                        applied to anchors.
