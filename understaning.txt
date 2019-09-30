@@ -199,3 +199,11 @@ J.Xu
         
 -3 load_weight
 -4 train
+
+
+0930
+
+data_prepare
+
+mask and bbox
+model.train() --> data-generator() --> load_image_gt()
